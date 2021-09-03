@@ -60,7 +60,7 @@ class KeypointInference(InferenceBase, OpenVINOConnector):
     def inference(self, data_generator: Iterator, save_dir=None):
         logging.info('Inference is start...')
         self.save_dir = save_dir
-        prev_input_id = -1
+        # prev_input_id = -1
         for input_id, image_path in data_generator:
             if self.inference_pipeline.callback_exceptions:
                 raise self.inference_pipeline.callback_exceptions[0]
@@ -74,8 +74,13 @@ class KeypointInference(InferenceBase, OpenVINOConnector):
             else:
                 self.inference_pipeline.await_any()
 
-            self.get_infer_results(prev_input_id)
-            prev_input_id = input_id
+            # self.get_infer_results(prev_input_id)
+            # prev_input_id = input_id
+
+            while self.inference_pipeline.has_completed_request():
+                ids = self.inference_pipeline.completed_request_results.keys()
+                for _id in list(ids):
+                    self.get_infer_results(_id)
 
         return self
 
@@ -113,7 +118,7 @@ class KeypointInference(InferenceBase, OpenVINOConnector):
                     "x": int(point.x),
                     "y": int(point.y)
                 })
-                cv2.circle(image_array, (int(point.x), int(point.y)), radius=0, color=(0, 0, 255), thickness=10)
+                cv2.circle(image_array, (int(point.x), int(point.y)), radius=0, color=(0, 0, 255), thickness=3)
             image_save_path = os.path.join(self.save_dir, 'images', os.path.basename(meta['image_path']))
             cv2.imwrite(image_save_path, image_array)
             annotation_save_path = os.path.join(self.save_dir,

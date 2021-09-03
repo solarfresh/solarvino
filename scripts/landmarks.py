@@ -11,7 +11,7 @@ class Config:
     num_threads = None
     num_infer_requests = 1
 
-    image_directory = '/Users/huangshangyu/Downloads/experiment/facekpt/image'
+    image_directory = '/Users/huangshangyu/Downloads/experiment/maskimage/Crowd_Human/No_Mask'
     save_dir = '/Users/huangshangyu/Downloads/experiment/facekpt/tmp/inference'
 
     model_dir = '/Users/huangshangyu/Projects/solarfresh/solarvino/assets/intel/landmarks-regression-retail-0009'
