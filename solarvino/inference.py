@@ -4,6 +4,7 @@ import logging
 from typing import Iterator
 from .model import KeypointModel
 from .pipeline import (AsyncPipeline, OpenVINOConnector)
+from .utils import dump_beautiful_json
 
 
 class InferenceBase:
@@ -83,7 +84,39 @@ class KeypointInference(InferenceBase, OpenVINOConnector):
 
         if self.save_dir is not None:
             image_array = meta['image_array']
-            for point in keypoints.points:
+            image_path = meta['image_path']
+
+            annotation = {
+                'annotations': {
+                    "image_size": {
+                        "depth": image_array.shape[2],
+                        "height": image_array.shape[0],
+                        "width": image_array.shape[1]
+                    },
+                    'keypoints': [],
+                },
+                "metadata": {
+                    "class-map": {
+                        "0": "left_eye",
+                        "1": "right_eye",
+                        "2": "nose_tip",
+                        "3": "left_lip_corner",
+                        '4': 'right_lip_corner'
+                    }
+                },
+                "source-ref": os.path.basename(image_path)
+            }
+
+            for idx, point in enumerate(keypoints.points):
+                annotation['annotations']['keypoints'].append({
+                    "class_id": idx,
+                    "x": int(point.x),
+                    "y": int(point.y)
+                })
                 cv2.circle(image_array, (int(point.x), int(point.y)), radius=0, color=(0, 0, 255), thickness=10)
-            save_path = os.path.join(self.save_dir, os.path.basename(meta['image_path']))
-            cv2.imwrite(save_path, image_array)
+            image_save_path = os.path.join(self.save_dir, 'images', os.path.basename(meta['image_path']))
+            cv2.imwrite(image_save_path, image_array)
+            annotation_save_path = os.path.join(self.save_dir,
+                                                'annotations',
+                                                f'{os.path.splitext(os.path.basename(image_path))[0]}.json')
+            dump_beautiful_json(annotation, annotation_save_path)
