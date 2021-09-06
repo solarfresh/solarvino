@@ -1,8 +1,9 @@
 import cv2
 import os
 import logging
-from typing import Iterator
-from .model import KeypointModel
+import numpy as np
+from typing import (Iterator, List)
+from . import model
 from .pipeline import (AsyncPipeline, OpenVINOConnector)
 from .utils import dump_beautiful_json
 
@@ -18,6 +19,7 @@ class InferenceBase:
     inference_pipeline = None
     meta_option = {}
     output_layer = None
+    save_dir = ''
 
     def load_model(self,
                    model_xml_path,
@@ -25,37 +27,6 @@ class InferenceBase:
                    *args,
                    **kwargs):
         raise NotImplementedError
-
-    def inference(self, *args, **kwargs):
-        raise NotImplementedError
-
-    def get_infer_results(self, input_id):
-        results = self.inference_pipeline.get_result(input_id)
-        if results:
-            logging.debug(f'Inference results read {results}')
-            self.infer_results_handler(results)
-            return results
-
-        return None
-
-    def infer_results_handler(self, results):
-        raise NotImplementedError
-
-
-class KeypointInference(InferenceBase, OpenVINOConnector):
-    save_dir = None
-
-    def load_model(self,
-                   model_xml_path,
-                   model_bin_path,
-                   *args,
-                   **kwargs):
-        self.model = KeypointModel(self.inference_engine,
-                                   model_xml_path,
-                                   model_bin_path)
-        self.inference_pipeline = AsyncPipeline(self.inference_engine, self.model, self.plugin_config,
-                                                device=self.device, num_infer_requests=self.num_infer_requests)
-        return self
 
     def inference(self, data_generator: Iterator, save_dir=None):
         logging.info('Inference is start...')
@@ -82,6 +53,32 @@ class KeypointInference(InferenceBase, OpenVINOConnector):
                 for _id in list(ids):
                     self.get_infer_results(_id)
 
+        return self
+
+    def get_infer_results(self, input_id):
+        results = self.inference_pipeline.get_result(input_id)
+        if results:
+            logging.debug(f'Inference results read {results}')
+            self.infer_results_handler(results)
+            return results
+
+        return None
+
+    def infer_results_handler(self, results):
+        raise NotImplementedError
+
+
+class KeypointInference(InferenceBase, OpenVINOConnector):
+    def load_model(self,
+                   model_xml_path,
+                   model_bin_path,
+                   *args,
+                   **kwargs):
+        self.model = model.KeypointModel(self.inference_engine,
+                                         model_xml_path,
+                                         model_bin_path)
+        self.inference_pipeline = AsyncPipeline(self.inference_engine, self.model, self.plugin_config,
+                                                device=self.device, num_infer_requests=self.num_infer_requests)
         return self
 
     def infer_results_handler(self, results):
@@ -125,3 +122,50 @@ class KeypointInference(InferenceBase, OpenVINOConnector):
                                                 'annotations',
                                                 f'{os.path.splitext(os.path.basename(image_path))[0]}.json')
             dump_beautiful_json(annotation, annotation_save_path)
+
+
+class ObjectDetectionInference(InferenceBase, OpenVINOConnector):
+    default_attr = {}
+    labels = []
+    confidence_score = .5
+    nms_threshold = .45
+
+    def load_model(self,
+                   model_xml_path,
+                   model_bin_path,
+                   *args,
+                   **kwargs):
+
+        self.default_attr.update(**kwargs)
+        for key, value in self.default_attr.items():
+            if key not in ['labels', 'confidence_score', 'nms_threshold']:
+                continue
+
+            self.__setattr__(key, value)
+
+        self.model = model.ObjectDetectionModel(self.inference_engine,
+                                                model_xml_path,
+                                                model_bin_path,
+                                                labels=self.labels,
+                                                confidence_score=self.confidence_score,
+                                                nms_threshold=self.nms_threshold,)
+        self.inference_pipeline = AsyncPipeline(self.inference_engine, self.model, self.plugin_config,
+                                                device=self.device, num_infer_requests=self.num_infer_requests)
+        return self
+
+    def infer_results_handler(self, results):
+        detections, meta = results
+
+        if self.save_dir is not None:
+            image_array = meta['image_array']
+            image_path = meta['image_path']
+            fname = os.path.splitext(os.path.basename(image_path))[0]
+
+            idx = -1
+            for detection in detections:
+                idx += 1
+                sub_img = image_array[
+                          int(detection.top):int(detection.bottom),
+                          int(detection.left):int(detection.right)].copy()
+                cv2.imwrite(os.path.join(self.save_dir, 'cropped', f'{fname}_{idx}.png'), sub_img.astype(np.uint8))
+
