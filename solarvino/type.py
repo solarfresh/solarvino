@@ -7,6 +7,23 @@ class Point:
         self.y = y
 
 
+class Detection:
+    def __init__(self, left, top, right, bottom, score, class_id):
+        # todo: can be converted into NumpyBBox
+        self.left = left
+        self.top = top
+        self.right = right
+        self.bottom = bottom
+        self.score = score
+        self.class_id = int(class_id)
+
+    def bottom_left_point(self):
+        return self.bottom, self.right
+
+    def top_right_point(self):
+        return self.top, self.right
+
+
 class FacialLandmark5:
     def __init__(self, points: List[Point]):
         self.points = points
