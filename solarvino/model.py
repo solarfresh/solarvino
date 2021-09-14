@@ -60,6 +60,25 @@ class BaseModel:
         return image_blob_name, image_info_blob_name
 
 
+class HeadPoseModel(BaseModel):
+    def __init__(self, ie, model_xml, model_bin):
+        super().__init__(ie, model_xml, model_bin)
+        self.output_parser = self._get_output_parser(self.net, self.image_blob_name)
+
+    def postprocess(self, outputs, meta):
+        angles = self.output_parser(outputs)
+        return angles
+
+    def _get_output_parser(self, net, image_blob_name):
+        try:
+            parser = output_parser.HeadPoseParser(net.outputs)
+            self.logger.info('Use HeadPoseParser')
+            return parser
+        except ValueError as e:
+            logging.debug(f'HeadPoseParser provides the message {e}')
+            pass
+
+
 class KeypointModel(BaseModel):
     def __init__(self, ie, model_xml, model_bin):
         super().__init__(ie, model_xml, model_bin)

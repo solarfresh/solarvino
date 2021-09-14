@@ -47,3 +47,10 @@ class FacialLandmark5:
     @property
     def right_lip_corner(self):
         return self.points[4]
+
+
+class Direction:
+    def __init__(self, yaw, pitch, roll):
+        self.yaw = yaw
+        self.pitch = pitch
+        self.roll = roll

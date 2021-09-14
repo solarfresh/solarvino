@@ -68,6 +68,32 @@ class InferenceBase:
         raise NotImplementedError
 
 
+class HeadPoseInference(InferenceBase, OpenVINOConnector):
+    def load_model(self,
+                   model_xml_path,
+                   model_bin_path,
+                   *args,
+                   **kwargs):
+        self.model = model.HeadPoseModel(self.inference_engine,
+                                         model_xml_path,
+                                         model_bin_path)
+        self.inference_pipeline = AsyncPipeline(self.inference_engine, self.model, self.plugin_config,
+                                                device=self.device, num_infer_requests=self.num_infer_requests)
+        return self
+
+    def infer_results_handler(self, results):
+        angle, meta = results
+        if self.save_dir is not None:
+            fname = os.path.basename(meta['image_path'])
+            yaw = angle.yaw
+            pitch = angle.pitch
+            roll = angle.roll
+            dump_beautiful_json({'fname': fname,
+                                 'yaw': yaw,
+                                 'pitch': pitch,
+                                 'roll': roll}, os.path.join(self.save_dir, f'{os.path.splitext(fname)[0]}.json'))
+
+
 class KeypointInference(InferenceBase, OpenVINOConnector):
     def load_model(self,
                    model_xml_path,

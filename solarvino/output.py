@@ -1,5 +1,5 @@
 import numpy as np
-from .type import (Point, Detection, FacialLandmark5)
+from .type import (Point, Detection, Direction, FacialLandmark5)
 
 
 class OutputParserBase:
@@ -26,6 +26,21 @@ class FacialLandmark5Parser(OutputParserBase):
         kpts = kpts.reshape((-1, 2))
         points = [Point(kpt[0], kpt[1]) for kpt in kpts]
         return FacialLandmark5(points=points)
+
+
+class HeadPoseParser(OutputParserBase):
+    def __init__(self, layers):
+        self.angle_y_fc = self.find_layer_by_name('angle_y_fc', layers)
+        self.angle_p_fc = self.find_layer_by_name('angle_p_fc', layers)
+        self.angle_r_fc = self.find_layer_by_name('angle_r_fc', layers)
+
+    def __call__(self, outputs):
+        angle_y_fc = outputs[self.angle_y_fc][0]
+        angle_p_fc = outputs[self.angle_p_fc][0]
+        angle_r_fc = outputs[self.angle_r_fc][0]
+        return Direction(yaw=angle_y_fc[0],
+                         pitch=angle_p_fc[0],
+                         roll=angle_r_fc[0])
 
 
 class SingleOutputParser(OutputParserBase):
